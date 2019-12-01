@@ -7,7 +7,9 @@ using System.Text;
 namespace HttpServer {
     class Program {
         static void Main(string[] args) {
+
             // このデータはMDNを参照したものです
+            // 何故かWindowsから取得はjsが無かったから適当に参考にして作りました
             var extentions = new Dictionary<string, string>() {
                 {".aac","audio/aac"},
                 {".abw","application/x-abiword"},
@@ -84,14 +86,17 @@ namespace HttpServer {
                 {".7z","application/x-7z-compressed"}
             };
 
+            // 空いてるポートまでループループ
             for (var port = 3000; port < 65535; port++) {
                 try {
-                    var pubPath = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory + @".\");
+                    // 実行ディレクトリを指定
+                    var pubPath = AppDomain.CurrentDomain.BaseDirectory;
 
                     HttpListener listener = new HttpListener();
                     listener.Prefixes.Add($"http://localhost:{port}/");
                     listener.Start();
                     Console.WriteLine($"Listening in localhost:{port}");
+                    // ブラウザで開かせる
                     System.Diagnostics.Process.Start($"http://localhost:{port}/");
 
                     for (; ; ) {
@@ -101,23 +106,24 @@ namespace HttpServer {
 
                         var wpath = req.RawUrl;
                         Console.WriteLine(wpath);
-                        if (wpath == "/") wpath = "/index.html";
-                        if (!File.Exists(pubPath + wpath.Replace("/", "\\"))) wpath = "/index.html";
+
+                        // 何も指定しない、または存在しないものを参照したらindex.html送り(SPA用)
+                        if (wpath == "/" || !File.Exists(pubPath + wpath.Replace("/", "\\"))) wpath = "/index.html";
 
                         string mime = "";
-                        Console.WriteLine(wpath.Substring(wpath.LastIndexOf(".")));
                         extentions.TryGetValue(wpath.Substring(wpath.LastIndexOf(".")),out mime);
-                        Console.WriteLine(mime);
 
                         var path = pubPath + wpath.Replace("/", "\\");
 
                         try {
                             res.StatusCode = 200;
                             byte[] content = File.ReadAllBytes(path);
+                            // 見つからなかったら面倒だから指定しない
                             if(mime != "")
                                 res.ContentType = mime;
                             res.OutputStream.Write(content, 0, content.Length);
                         } catch (Exception ex) {
+                            // 理論上ここに来ることはないけど(存在しない画像参照しようとしてもindex.html行き食らうから)
                             res.StatusCode = 500;
                             byte[] content = Encoding.UTF8.GetBytes(ex.Message);
                             res.OutputStream.Write(content, 0, content.Length);
